@@ -2,4 +2,4 @@
 
 yarn check || yarn install
 
-yarn start
+quasar dev
