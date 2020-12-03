@@ -1,0 +1,23 @@
+version: '3.5'
+services:
+  energio-client:
+    container_name: energio-client
+    restart: always
+    build: .
+    ports:
+      - 8080:8080
+    entrypoint: ["sh", "./scripts/start.sh"]
+    volumes:
+      - .:/energio-client
+      - yarn_cache:/energio-client/node_modules
+    networks:
+      - energio-network
+    environment:
+      - API_URL=http://0.0.0.0:3000
+
+networks:
+  energio-network:
+    external: true
+
+volumes:
+  yarn_cache:
