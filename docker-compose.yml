@@ -13,7 +13,7 @@ services:
     networks:
       - energio-network
     environment:
-      - API_URL=http://0.0.0.0:3000
+      - ENERGIO_API_URL=http://0.0.0.0:3000
 
 networks:
   energio-network:
