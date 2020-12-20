@@ -22,7 +22,7 @@ export default {
   data: () => ({
     mainMap: null,
     vectorLayer: null,
-    autoUpdate: 0,
+    selectedGroup: null,
   }),
 
   mounted() {
@@ -49,20 +49,19 @@ export default {
     });
 
     this.mainMap.on("click", (event) => {
-      // will return the first feature under the pointer
       const clicked = this.mainMap.forEachFeatureAtPixel(
         event.pixel,
         (feature) => feature
       );
-      // emit a `select` event, either with a feature or without
-      this.selectElement(clicked);
+      this.selectedGroup = clicked;
     });
-
-    this.updateLayers(this.geometry);
   },
   watch: {
     geometry(value) {
       this.updateLayers(value);
+    },
+    selectedGroup(value) {
+      value ? this.updateGeometry(value.getId()) : this.getGeometry();
     },
   },
   created() {
@@ -79,10 +78,7 @@ export default {
       updateGeometry: "groups/updateGeometry",
     }),
     updateLayers(geojson) {
-      if (geojson) {
-        console.log("############# watch #############");
-        console.log(geojson);
-        console.log("############# watch #############");
+      if (geojson && geojson.type) {
         const view = this.mainMap.getView();
         const source = this.vectorLayer.getSource();
 
@@ -92,24 +88,9 @@ export default {
 
         source.clear();
         source.addFeatures(features);
-
-        // this zooms the view on the created object
         view.fit(source.getExtent());
       }
     },
-    selectElement(clicked) {
-      // const source = clicked.getSource();
-      // view.fit(source.getExtent());
-      if (clicked) {
-        console.log(clicked.getId());
-        this.updateGeometry(clicked.getId());
-      }
-    },
-    // autoupdateGeometry() {
-    //   this.getGeometry().then(() => {
-    //     this.autoUpdate = setTimeout(this.autoupdateGeometry, 5000);
-    //   });
-    // },
   },
 };
 </script>
