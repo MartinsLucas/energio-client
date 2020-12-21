@@ -13,32 +13,31 @@ import { fromLonLat } from "ol/proj";
 import OSM from "ol/source/OSM";
 import { mapActions, mapGetters } from "vuex";
 import State from "../services/states.js";
-
+import { GROUP_RELATED_LAYERS } from "../services/constants.js";
 import "ol/ol.css";
 
 export default {
   name: "MapContainer",
+
   components: {},
+
   data: () => ({
     mainMap: null,
-    vectorLayer: null,
+    groupsLayer: null,
     selectedGroup: null,
   }),
 
   mounted() {
-    this.vectorLayer = new VectorLayer({
-      source: new VectorSource({
-        features: [],
-      }),
-    });
+    this.groupsLayer = this.createNewLayer("Groups");
 
     this.mainMap = new Map({
       target: this.$refs["map-root"],
       layers: [
         new TileLayer({
+          name: "MainMap",
           source: new OSM(),
         }),
-        this.vectorLayer,
+        this.groupsLayer,
       ],
 
       view: new View({
@@ -56,40 +55,102 @@ export default {
       this.selectedGroup = clicked;
     });
   },
+
   watch: {
-    geometry(value) {
-      this.updateLayers(value);
+    groupsGeometry(value) {
+      this.updateGroupsLayers(value);
     },
+
     selectedGroup(value) {
-      value ? this.updateGeometry(value.getId()) : this.getGeometry();
+      if (value) {
+        const groupId = value.getId();
+        this.updateGroupsGeometry(groupId);
+        this.loadGroupRelatedLayers(groupId);
+      } else {
+        this.getGroupsGeometry();
+        this.resetLayers();
+      }
+    },
+
+    activeLayersData(value) {
+      this.updateActiveLayers(value);
     },
   },
+
   created() {
-    this.getGeometry();
+    this.getGroupsGeometry();
   },
+
   computed: {
     ...mapGetters({
-      geometry: "groups/geometry",
+      groupsGeometry: "groups/geometry",
+      activeLayersData: "layers/active",
     }),
   },
+
   methods: {
     ...mapActions({
-      getGeometry: "groups/getGeometry",
-      updateGeometry: "groups/updateGeometry",
+      getGroupsGeometry: "groups/getGeometry",
+      updateGroupsGeometry: "groups/updateGeometry",
+      addLayer: "layers/addLayer",
+      removeLayer: "layers/removeLayer",
+      clearLayers: "layers/clearLayer",
     }),
-    updateLayers(geojson) {
+
+    createNewLayer(layerName = "") {
+      return new VectorLayer({
+        name: layerName,
+        source: new VectorSource({
+          features: [],
+        }),
+      });
+    },
+
+    updateLayer(layer, geojson, isGroup = false) {
       if (geojson && geojson.type) {
         const view = this.mainMap.getView();
-        const source = this.vectorLayer.getSource();
+        const source = layer.getSource();
 
         const features = new GeoJSON({
           featureProjection: "EPSG:3857",
         }).readFeatures(geojson);
 
-        source.clear();
+        isGroup && source.clear();
         source.addFeatures(features);
-        view.fit(source.getExtent());
+        isGroup && view.fit(source.getExtent());
       }
+    },
+
+    updateGroupsLayers(geojson) {
+      this.groupsLayer.getSource().clear();
+      this.updateLayer(this.groupsLayer, geojson, true);
+    },
+
+    updateActiveLayers(updatedLayersData) {
+      updatedLayersData &&
+        updatedLayersData.map((layerData) => {
+          const newLayer = this.createNewLayer(layerData.data.className);
+          this.updateLayer(newLayer, layerData.data);
+          this.mainMap.addLayer(newLayer);
+        });
+    },
+
+    loadGroupRelatedLayers(groupId) {
+      GROUP_RELATED_LAYERS.map((layerDescription) => {
+        this.addLayer({
+          groupId: groupId,
+          className: layerDescription.className,
+        });
+      });
+    },
+
+    resetLayers() {
+      this.clearLayers();
+      this.mainMap
+        .getLayers()
+        .getArray()
+        .filter((layer) => !["Groups", "MainMap"].includes(layer.get("name")))
+        .map((layer) => this.mainMap.removeLayer(layer));
     },
   },
 };
