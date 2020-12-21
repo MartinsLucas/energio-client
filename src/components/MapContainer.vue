@@ -1,20 +1,102 @@
 <template>
-  <div ref="map-root" style="width: 100%; height: 100%"></div>
+  <div ref="map-root" style="width: 100%; height: 100%">
+    <div id="popup" class="ol-popup">
+      <a href="#" id="popup-closer" class="ol-popup-closer"></a>
+      <div id="popup-content">
+        <div v-if="hoveredFeature">
+          <div
+            v-for="(value, key, index) in getAttributes(hoveredFeature)"
+            :key="index"
+            class="text-caption text-grey"
+          >
+            {{ capitalize(key) }}: {{ value }}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="energio-info-cards column">
+      <div class="q-pa-md col-2 row">
+        <q-card class="my-card" flat bordered>
+          <q-card-section horizontal>
+            <q-card-section class="q-pt-xs">
+              <div class="text-overline">Energio</div>
+              <div class="text-h6 q-mt-sm q-mb-xs">Group</div>
+              <div v-if="selectedGroup">
+                <div
+                  v-for="(value, key, index) in getGroupAttributes()"
+                  :key="index"
+                  class="text-caption text-grey"
+                >
+                  {{ capitalize(key) }}: {{ value }}
+                </div>
+              </div>
+              <div v-else class="text-caption text-grey">
+                Selecione um conjunto para inciar...
+              </div>
+            </q-card-section>
+          </q-card-section>
+
+          <q-separator />
+
+          <q-card-actions>
+            <q-btn flat round icon="event" />
+            <q-btn flat> 7:30PM </q-btn>
+            <q-btn flat color="primary"> Reserve </q-btn>
+          </q-card-actions>
+        </q-card>
+      </div>
+      <div class="q-pa-md col-2 row">
+        <q-card class="my-card" flat bordered>
+          <q-card-section horizontal>
+            <q-card-section class="q-pt-xs">
+              <div class="text-overline">Energio</div>
+              <div class="text-h6 q-mt-sm q-mb-xs">Group</div>
+              <div v-if="selectedGroup">
+                <!-- <div
+                  v-for="(value, key, index) in getGroupAttributes()"
+                  :key="index"
+                  class="text-caption text-grey"
+                >
+                  {{ capitalize(key) }}: {{ value }}
+                </div> -->
+                aaaaaaaaaaaaaaaaaaaaaaaa
+              </div>
+              <div v-else class="text-caption text-grey">
+                Selecione um conjunto para inciar...
+              </div>
+            </q-card-section>
+          </q-card-section>
+
+          <q-separator />
+
+          <q-card-actions>
+            <q-btn flat round icon="event" />
+            <q-btn flat> 7:30PM </q-btn>
+            <q-btn flat color="primary"> Reserve </q-btn>
+          </q-card-actions>
+        </q-card>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script>
-import View from "ol/View";
-import Map from "ol/Map";
-import TileLayer from "ol/layer/Tile";
-import VectorLayer from "ol/layer/Vector";
-import VectorSource from "ol/source/Vector";
-import GeoJSON from "ol/format/GeoJSON";
-import { fromLonLat } from "ol/proj";
-import OSM from "ol/source/OSM";
-import { mapActions, mapGetters } from "vuex";
-import State from "../services/states.js";
-import { GROUP_RELATED_LAYERS } from "../services/constants.js";
 import "ol/ol.css";
+import Map from "ol/Map";
+import View from "ol/View";
+import * as Extent from "ol/extent";
+import OSM from "ol/source/OSM";
+import Overlay from "ol/Overlay";
+import TileLayer from "ol/layer/Tile";
+import GeoJSON from "ol/format/GeoJSON";
+import VectorLayer from "ol/layer/Vector";
+import State from "../services/states.js";
+import VectorSource from "ol/source/Vector";
+
+import { toStringHDMS } from "ol/coordinate";
+import { fromLonLat, toLonLat } from "ol/proj";
+import { mapActions, mapGetters } from "vuex";
+import { GROUP_RELATED_LAYERS } from "../services/constants.js";
 
 export default {
   name: "MapContainer",
@@ -25,13 +107,33 @@ export default {
     mainMap: null,
     groupsLayer: null,
     selectedGroup: null,
+    hoveredFeature: null,
   }),
 
   mounted() {
+    const container = document.getElementById("popup");
+    const content = document.getElementById("popup-content");
+    const closer = document.getElementById("popup-closer");
+
+    let overlay = new Overlay({
+      element: container,
+      autoPan: true,
+      autoPanAnimation: {
+        duration: 250,
+      },
+    });
+
+    closer.onclick = function () {
+      overlay.setPosition(undefined);
+      closer.blur();
+      return false;
+    };
+
     this.groupsLayer = this.createNewLayer("Groups");
 
     this.mainMap = new Map({
       target: this.$refs["map-root"],
+      overlays: [overlay],
       layers: [
         new TileLayer({
           name: "MainMap",
@@ -45,6 +147,26 @@ export default {
         center: [0, 0],
         constrainResolution: true,
       }),
+    });
+
+    this.mainMap.on("pointermove", (event) => {
+      const clicked = this.mainMap.forEachFeatureAtPixel(
+        event.pixel,
+        (feature) => feature
+      );
+
+      this.hoveredFeature = clicked ? clicked : null;
+
+      let coordinates = clicked
+        ? Extent.getCenter(clicked.getGeometry().getExtent())
+        : undefined;
+
+      let center = coordinates ? Extent.getCenter(coordinates) : coordinates;
+
+      overlay.setPosition(coordinates);
+      console.log("########### set position ###########");
+      console.log(this.getAttributes(this.hoveredFeature));
+      console.log("########### set position ###########");
     });
 
     this.mainMap.on("click", (event) => {
@@ -151,6 +273,36 @@ export default {
         .getArray()
         .filter((layer) => !["Groups", "MainMap"].includes(layer.get("name")))
         .map((layer) => this.mainMap.removeLayer(layer));
+    },
+
+    getGroupAttributes() {
+      let object = {};
+      if (this.selectedGroup) {
+        const { geometry, ...attributes } = JSON.parse(
+          JSON.stringify(this.selectedGroup)
+        ).values_;
+
+        object = attributes;
+      }
+
+      return object;
+    },
+
+    getAttributes(feature) {
+      let object = {};
+      if (feature) {
+        const { geometry, ...attributes } = JSON.parse(
+          JSON.stringify(feature)
+        ).values_;
+
+        object = attributes;
+      }
+
+      return object;
+    },
+
+    capitalize([firstLetter, ...restOfWord]) {
+      return firstLetter.toUpperCase() + restOfWord.join("");
     },
   },
 };
