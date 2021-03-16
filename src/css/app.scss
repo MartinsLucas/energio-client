@@ -1,10 +1,16 @@
 // app global css in SCSS form
-.energio-info-cards {
+.energio-info-cards-container {
   position: absolute;
-  width: 20%;
+  min-width: 20%;
   right: 0;
   z-index: 1;
 }
+
+.energio-info-card {
+    min-width: 100%;
+    right: 5;
+    z-index: 1;
+  }
 
 .ol-popup {
   position: absolute;

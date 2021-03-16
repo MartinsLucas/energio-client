@@ -14,9 +14,9 @@
         </div>
       </div>
     </div>
-    <div class="energio-info-cards column">
+    <div class="energio-info-cards-container column">
       <div class="q-pa-md col-2 row">
-        <q-card class="my-card" flat bordered>
+        <q-card class="energio-info-card" flat bordered>
           <q-card-section horizontal>
             <q-card-section class="q-pt-xs">
               <div class="text-overline">Energio</div>
@@ -31,49 +31,50 @@
                 </div>
               </div>
               <div v-else class="text-caption text-grey">
-                Selecione um conjunto para inciar...
+                Click on a group to start
               </div>
             </q-card-section>
           </q-card-section>
 
-          <q-separator />
+          <!-- <q-separator />
 
           <q-card-actions>
             <q-btn flat round icon="event" />
             <q-btn flat> 7:30PM </q-btn>
             <q-btn flat color="primary"> Reserve </q-btn>
-          </q-card-actions>
+          </q-card-actions> -->
         </q-card>
       </div>
-      <div class="q-pa-md col-2 row">
-        <q-card class="my-card" flat bordered>
+      <div v-if="selectedGroup" class="q-pa-md col-2 row">
+        <q-card class="energio-info-card" flat bordered>
           <q-card-section horizontal>
             <q-card-section class="q-pt-xs">
               <div class="text-overline">Energio</div>
-              <div class="text-h6 q-mt-sm q-mb-xs">Group</div>
-              <div v-if="selectedGroup">
-                <!-- <div
-                  v-for="(value, key, index) in getGroupAttributes()"
+              <div class="text-h6 q-mt-sm q-mb-xs">Layers</div>
+              <div>
+                <div
+                  v-for="(layer, index) in validLayers"
                   :key="index"
                   class="text-caption text-grey"
                 >
-                  {{ capitalize(key) }}: {{ value }}
-                </div> -->
-                aaaaaaaaaaaaaaaaaaaaaaaa
-              </div>
-              <div v-else class="text-caption text-grey">
-                Selecione um conjunto para inciar...
+                  <q-btn
+                    flat
+                    color="primary"
+                    @click="toggleLayer(layer)"
+                    :label="layer.name"
+                  />
+                </div>
               </div>
             </q-card-section>
           </q-card-section>
 
-          <q-separator />
+          <!-- <q-separator />
 
           <q-card-actions>
             <q-btn flat round icon="event" />
             <q-btn flat> 7:30PM </q-btn>
             <q-btn flat color="primary"> Reserve </q-btn>
-          </q-card-actions>
+          </q-card-actions> -->
         </q-card>
       </div>
     </div>
@@ -108,6 +109,8 @@ export default {
     groupsLayer: null,
     selectedGroup: null,
     hoveredFeature: null,
+    validLayers: GROUP_RELATED_LAYERS,
+    userSelectedLayers: [],
   }),
 
   mounted() {
@@ -164,9 +167,6 @@ export default {
       let center = coordinates ? Extent.getCenter(coordinates) : coordinates;
 
       overlay.setPosition(coordinates);
-      console.log("########### set position ###########");
-      console.log(this.getAttributes(this.hoveredFeature));
-      console.log("########### set position ###########");
     });
 
     this.mainMap.on("click", (event) => {
@@ -187,7 +187,7 @@ export default {
       if (value) {
         const groupId = value.getId();
         this.updateGroupsGeometry(groupId);
-        this.loadGroupRelatedLayers(groupId);
+        // this.loadGroupRelatedLayers(groupId);
       } else {
         this.getGroupsGeometry();
         this.resetLayers();
@@ -258,12 +258,32 @@ export default {
     },
 
     loadGroupRelatedLayers(groupId) {
-      GROUP_RELATED_LAYERS.map((layerDescription) => {
+      this.validLayers.map((layerDescription) => {
         this.addLayer({
           groupId: groupId,
           className: layerDescription.className,
         });
       });
+    },
+
+    toggleLayer(layer) {
+      const index = this.userSelectedLayers.findIndex((current_layer) => {
+        return current_layer.className === layer.className;
+      });
+
+      if (index >= 0) {
+        let newList = [...this.userSelectedLayers];
+        newList.splice(index, 1);
+        this.userSelectedLayers = newList;
+        this.removeLayer(layer.className);
+      } else {
+        this.userSelectedLayers = [...this.userSelectedLayers, layer];
+        this.addLayer({
+          groupId: this.selectedGroup.getId(),
+          className: layer.className,
+        });
+        console.log();
+      }
     },
 
     resetLayers() {
